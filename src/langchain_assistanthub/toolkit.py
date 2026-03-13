@@ -128,7 +128,10 @@ class AssistantHubToolkit:
         for tool_cls, is_premium in _ALL_TOOLS:
             if is_premium and not self.include_premium:
                 continue
-            if self.tool_filter and tool_cls.hub_tool_id not in self.tool_filter:
+            if (
+                self.tool_filter
+                and tool_cls.model_fields["hub_tool_id"].default not in self.tool_filter
+            ):
                 continue
 
             tool = tool_cls(
@@ -192,7 +195,7 @@ class AssistantHubToolkit:
     def available_tools(self) -> List[str]:
         """List all available tool IDs."""
         ids = [
-            cls.hub_tool_id
+            cls.model_fields["hub_tool_id"].default
             for cls, is_premium in _ALL_TOOLS
             if (not is_premium or self.include_premium)
         ]
