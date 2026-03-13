@@ -17,28 +17,27 @@ Usage:
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 from langchain_core.tools import BaseTool
 
-from langchain_assistanthub.tools import (
-    AssistantHubLivePrices,
-    AssistantHubFearGreed,
-    AssistantHubCryptoNews,
-    AssistantHubRiskScores,
-    AssistantHubDailyPulse,
-    AssistantHubAIForecast,
-    AssistantHubMonteCarloBacktest,
-    AssistantHubSlippageEstimate,
-    AssistantHubCreateAlert,
-)
-from langchain_assistanthub.strategy import AssistantHubStrategyAnalysis
 from langchain_assistanthub.execution import (
-    AssistantHubExecuteTrade,
     AssistantHubCheckApproval,
+    AssistantHubExecuteTrade,
 )
 from langchain_assistanthub.price_monitor import AssistantHubPriceMonitor
-
+from langchain_assistanthub.strategy import AssistantHubStrategyAnalysis
+from langchain_assistanthub.tools import (
+    AssistantHubAIForecast,
+    AssistantHubCreateAlert,
+    AssistantHubCryptoNews,
+    AssistantHubDailyPulse,
+    AssistantHubFearGreed,
+    AssistantHubLivePrices,
+    AssistantHubMonteCarloBacktest,
+    AssistantHubRiskScores,
+    AssistantHubSlippageEstimate,
+)
 
 # ── Tool Registry ────────────────────────────────────────────────────
 
@@ -224,8 +223,7 @@ class AssistantHubToolkit:
         api_key = os.environ.get("ASSISTANT_HUB_API_KEY", "")
         if not api_key:
             raise ValueError(
-                "ASSISTANT_HUB_API_KEY not set. "
-                "Get your key at https://rmassistanthub.io/#payments"
+                "ASSISTANT_HUB_API_KEY not set. Get your key at https://rmassistanthub.io/#payments"
             )
         return cls(api_key=api_key, **kwargs)
 

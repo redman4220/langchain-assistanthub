@@ -13,14 +13,14 @@ Premium tools are flagged — they require Pro/Premium JWT or x402 payment.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 import aiohttp
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-
 # ── Base Tool ────────────────────────────────────────────────────────
+
 
 class AssistantHubBaseTool(BaseTool):
     """Base class for all Assistant Hub tools with shared HTTP logic."""
@@ -68,18 +68,21 @@ class AssistantHubBaseTool(BaseTool):
                     if body and self.hub_method in ("POST", "PUT"):
                         kwargs["json"] = body
 
-                    async with session.request(
-                        self.hub_method, url, **kwargs
-                    ) as resp:
+                    async with session.request(self.hub_method, url, **kwargs) as resp:
                         if resp.status == 402:
                             # Premium tool — return payment info for agent to handle
                             payment_headers = {
-                                k: v for k, v in resp.headers.items()
+                                k: v
+                                for k, v in resp.headers.items()
                                 if k.lower().startswith("x-402-")
                             }
                             return {
                                 "error": "payment_required",
-                                "message": f"This is a premium tool. Pay {payment_headers.get('x-402-amount', '?')} USDC on Base to use it, or upgrade to Pro/Premium tier.",
+                                "message": (
+                                    f"Premium tool. Pay "
+                                    f"{payment_headers.get('x-402-amount', '?')} "
+                                    "USDC on Base, or upgrade to Pro/Premium."
+                                ),
                                 "payment": payment_headers,
                                 "docs": f"{self.base_url}/docs#x402",
                             }
@@ -88,9 +91,13 @@ class AssistantHubBaseTool(BaseTool):
                             # Rate limited — retry after delay
                             if attempt < self.max_retries:
                                 import asyncio
-                                await asyncio.sleep(2 ** attempt)
+
+                                await asyncio.sleep(2**attempt)
                                 continue
-                            return {"error": "rate_limited", "message": "Rate limit exceeded. Try again later."}
+                            return {
+                                "error": "rate_limited",
+                                "message": "Rate limit exceeded. Try again later.",
+                            }
 
                         if resp.status >= 400:
                             text = await resp.text()
@@ -102,7 +109,8 @@ class AssistantHubBaseTool(BaseTool):
                 last_error = e
                 if attempt < self.max_retries:
                     import asyncio
-                    await asyncio.sleep(2 ** attempt)
+
+                    await asyncio.sleep(2**attempt)
                     continue
 
         return {"error": "connection_failed", "message": str(last_error)}
@@ -110,6 +118,7 @@ class AssistantHubBaseTool(BaseTool):
     def _run(self, **kwargs: Any) -> str:
         """Sync wrapper — runs the async implementation."""
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -118,6 +127,7 @@ class AssistantHubBaseTool(BaseTool):
         if loop and loop.is_running():
             # Already in an async context — create a new thread
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 result = pool.submit(asyncio.run, self._arun(**kwargs)).result()
             return result
@@ -131,51 +141,65 @@ class AssistantHubBaseTool(BaseTool):
 
 # ── Input Schemas ────────────────────────────────────────────────────
 
+
 class CoinInput(BaseModel):
     """Input for coin-specific queries."""
+
     coin: str = Field(
         default="BTC",
         description="Cryptocurrency symbol (e.g., BTC, ETH, SOL, DOGE, AVAX, LINK, ADA, DOT)",
     )
 
+
 class OptionalCoinInput(BaseModel):
     """Input that optionally takes a coin."""
+
     coin: Optional[str] = Field(
         default=None,
         description="Optional cryptocurrency symbol to filter results",
     )
 
+
 class BacktestInput(BaseModel):
     """Input for Monte Carlo backtesting."""
+
     coin: str = Field(description="Cryptocurrency symbol (e.g., BTC, ETH, SOL)")
     strategy: str = Field(
         default="momentum",
         description="Strategy type: momentum, mean_reversion, breakout, or rsi",
     )
     period_days: int = Field(default=90, description="Backtest period in days (30-365)")
-    simulations: int = Field(default=1000, description="Number of Monte Carlo simulations (100-10000)")
+    simulations: int = Field(default=1000, description="Monte Carlo simulations (100-10000)")
+
 
 class SlippageInput(BaseModel):
     """Input for slippage estimation."""
+
     coin: str = Field(description="Cryptocurrency symbol")
     amount_usd: float = Field(description="Trade size in USD")
     side: str = Field(default="buy", description="Trade side: buy or sell")
 
+
 class AlertInput(BaseModel):
     """Input for creating price alerts."""
+
     coin: str = Field(description="Cryptocurrency symbol")
     condition: str = Field(description="Alert condition: above, below, or change_pct")
     value: float = Field(description="Trigger value (price in USD or percentage)")
 
+
 class EmptyInput(BaseModel):
     """No input required."""
+
     pass
 
 
 # ── Individual Tools ─────────────────────────────────────────────────
 
+
 class AssistantHubLivePrices(AssistantHubBaseTool):
     """Get live cryptocurrency prices for 8 major coins."""
+
     name: str = "assistant_hub_live_prices"
     description: str = (
         "Get real-time cryptocurrency prices including BTC, ETH, SOL, DOGE, AVAX, LINK, ADA, DOT. "
@@ -194,6 +218,7 @@ class AssistantHubLivePrices(AssistantHubBaseTool):
 
 class AssistantHubFearGreed(AssistantHubBaseTool):
     """Get the Crypto Fear & Greed Index."""
+
     name: str = "assistant_hub_fear_greed"
     description: str = (
         "Get the current Crypto Fear & Greed Index (0-100). "
@@ -212,6 +237,7 @@ class AssistantHubFearGreed(AssistantHubBaseTool):
 
 class AssistantHubCryptoNews(AssistantHubBaseTool):
     """Get latest crypto news headlines."""
+
     name: str = "assistant_hub_crypto_news"
     description: str = (
         "Get the latest cryptocurrency news headlines from CryptoCompare. "
@@ -230,6 +256,7 @@ class AssistantHubCryptoNews(AssistantHubBaseTool):
 
 class AssistantHubRiskScores(AssistantHubBaseTool):
     """Get AI-computed risk scores for cryptocurrencies."""
+
     name: str = "assistant_hub_risk_scores"
     description: str = (
         "Get composite risk scores (0-100) for cryptocurrencies combining technical, "
@@ -252,6 +279,7 @@ class AssistantHubRiskScores(AssistantHubBaseTool):
 
 class AssistantHubDailyPulse(AssistantHubBaseTool):
     """Get the Daily Macro Pulse — top threats and opportunities."""
+
     name: str = "assistant_hub_daily_pulse"
     description: str = (
         "Get today's Daily Macro Pulse: AI-generated analysis of the top 3 macro threats "
@@ -270,6 +298,7 @@ class AssistantHubDailyPulse(AssistantHubBaseTool):
 
 class AssistantHubAIForecast(AssistantHubBaseTool):
     """Get AI-powered price forecast for a cryptocurrency. (Premium)"""
+
     name: str = "assistant_hub_ai_forecast"
     description: str = (
         "Get an AI-powered price forecast for a specific cryptocurrency. "
@@ -290,6 +319,7 @@ class AssistantHubAIForecast(AssistantHubBaseTool):
 
 class AssistantHubMonteCarloBacktest(AssistantHubBaseTool):
     """Run a Monte Carlo strategy backtest. (Premium)"""
+
     name: str = "assistant_hub_monte_carlo_backtest"
     description: str = (
         "Run a Monte Carlo simulation backtest on a cryptocurrency trading strategy. "
@@ -312,17 +342,20 @@ class AssistantHubMonteCarloBacktest(AssistantHubBaseTool):
         simulations: int = 1000,
         **kwargs: Any,
     ) -> str:
-        result = await self._hub_request(body={
-            "coin": coin.upper(),
-            "strategy": strategy,
-            "periodDays": period_days,
-            "simulations": simulations,
-        })
+        result = await self._hub_request(
+            body={
+                "coin": coin.upper(),
+                "strategy": strategy,
+                "periodDays": period_days,
+                "simulations": simulations,
+            }
+        )
         return json.dumps(result, indent=2)
 
 
 class AssistantHubSlippageEstimate(AssistantHubBaseTool):
     """Estimate trade slippage for a given order size. (Premium)"""
+
     name: str = "assistant_hub_slippage_estimate"
     description: str = (
         "Estimate the expected slippage for a cryptocurrency trade of a given size. "
@@ -343,16 +376,19 @@ class AssistantHubSlippageEstimate(AssistantHubBaseTool):
         side: str = "buy",
         **kwargs: Any,
     ) -> str:
-        result = await self._hub_request(params={
-            "coin": coin.upper(),
-            "amountUsd": str(amount_usd),
-            "side": side,
-        })
+        result = await self._hub_request(
+            params={
+                "coin": coin.upper(),
+                "amountUsd": str(amount_usd),
+                "side": side,
+            }
+        )
         return json.dumps(result, indent=2)
 
 
 class AssistantHubCreateAlert(AssistantHubBaseTool):
     """Create a price or change alert. (Premium)"""
+
     name: str = "assistant_hub_create_alert"
     description: str = (
         "Create a price alert for a cryptocurrency. Triggers when the price crosses "
@@ -372,9 +408,11 @@ class AssistantHubCreateAlert(AssistantHubBaseTool):
         value: float = 100000.0,
         **kwargs: Any,
     ) -> str:
-        result = await self._hub_request(body={
-            "coin": coin.upper(),
-            "condition": condition,
-            "value": value,
-        })
+        result = await self._hub_request(
+            body={
+                "coin": coin.upper(),
+                "condition": condition,
+                "value": value,
+            }
+        )
         return json.dumps(result, indent=2)

@@ -20,12 +20,13 @@ from typing import Any, Optional, Type
 
 from pydantic import BaseModel, Field
 
-from langchain_assistanthub.tools import AssistantHubBaseTool
 from langchain_assistanthub.price_feed import PriceBuffer
+from langchain_assistanthub.tools import AssistantHubBaseTool
 
 
 class PriceMonitorInput(BaseModel):
     """Input for price monitoring checks."""
+
     coin: str = Field(description="Cryptocurrency symbol (e.g., BTC, ETH, SOL)")
     threshold_pct: float = Field(
         default=5.0,
@@ -37,7 +38,7 @@ class PriceMonitorInput(BaseModel):
     )
     direction: str = Field(
         default="any",
-        description="Direction to monitor: 'up' (price increase only), 'down' (decrease only), or 'any' (either direction)",
+        description=("Direction: 'up' (increase only), 'down' (decrease only), 'any' (either)"),
     )
 
 
@@ -86,32 +87,47 @@ class AssistantHubPriceMonitor(AssistantHubBaseTool):
         **kwargs: Any,
     ) -> str:
         if self._price_buffer is None:
-            return json.dumps({
-                "error": "price_feed_not_enabled",
-                "message": "Price feed is not running. Enable with: AssistantHubToolkit(enable_price_feed=True)",
-            })
+            return json.dumps(
+                {
+                    "error": "price_feed_not_enabled",
+                    "message": (
+                        "Price feed is not running. "
+                        "Enable with: AssistantHubToolkit(enable_price_feed=True)"
+                    ),
+                }
+            )
 
         coin = coin.upper()
         current_price = self._price_buffer.latest(coin)
 
         if current_price is None:
-            return json.dumps({
-                "error": "no_data",
-                "message": f"No price data available for {coin}. The coin may not be tracked or the feed hasn't received data yet.",
-                "tracked_coins": self._price_buffer.tracked_coins,
-            })
+            return json.dumps(
+                {
+                    "error": "no_data",
+                    "message": (
+                        f"No price data for {coin}. "
+                        "Coin may not be tracked or feed hasn't received data."
+                    ),
+                    "tracked_coins": self._price_buffer.tracked_coins,
+                }
+            )
 
         change_pct = self._price_buffer.pct_change(coin, window_minutes)
         history = self._price_buffer.history(coin, window_minutes)
 
         if change_pct is None:
-            return json.dumps({
-                "coin": coin,
-                "current_price": current_price,
-                "triggered": False,
-                "message": f"Insufficient history for {coin} in {window_minutes}min window ({len(history)} ticks).",
-                "data_points": len(history),
-            })
+            return json.dumps(
+                {
+                    "coin": coin,
+                    "current_price": current_price,
+                    "triggered": False,
+                    "message": (
+                        f"Insufficient history for {coin} "
+                        f"in {window_minutes}min window ({len(history)} ticks)."
+                    ),
+                    "data_points": len(history),
+                }
+            )
 
         # Check threshold
         triggered = False
@@ -127,16 +143,19 @@ class AssistantHubPriceMonitor(AssistantHubBaseTool):
         high = max(prices_in_window) if prices_in_window else current_price
         low = min(prices_in_window) if prices_in_window else current_price
 
-        return json.dumps({
-            "coin": coin,
-            "triggered": triggered,
-            "current_price": current_price,
-            "change_pct": round(change_pct, 4),
-            "threshold_pct": threshold_pct,
-            "direction": direction,
-            "window_minutes": window_minutes,
-            "window_high": high,
-            "window_low": low,
-            "data_points": len(history),
-            "ts": int(time.time() * 1000),
-        }, indent=2)
+        return json.dumps(
+            {
+                "coin": coin,
+                "triggered": triggered,
+                "current_price": current_price,
+                "change_pct": round(change_pct, 4),
+                "threshold_pct": threshold_pct,
+                "direction": direction,
+                "window_minutes": window_minutes,
+                "window_high": high,
+                "window_low": low,
+                "data_points": len(history),
+                "ts": int(time.time() * 1000),
+            },
+            indent=2,
+        )

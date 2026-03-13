@@ -33,8 +33,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 import threading
+import time
 from collections import deque
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -47,8 +47,8 @@ except ImportError:
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables import RunnableSerializable
 
-
 # ── PriceBuffer ──────────────────────────────────────────────────
+
 
 class PriceBuffer:
     """
@@ -82,11 +82,7 @@ class PriceBuffer:
     def all_latest(self) -> Dict[str, float]:
         """Get the most recent price for all tracked coins."""
         with self._lock:
-            return {
-                coin: buf[-1][1]
-                for coin, buf in self._data.items()
-                if buf
-            }
+            return {coin: buf[-1][1] for coin, buf in self._data.items() if buf}
 
     def history(self, coin: str, minutes: int = 5) -> List[Tuple[int, float]]:
         """Get price history for a coin within the last N minutes."""
@@ -129,6 +125,7 @@ class PriceBuffer:
 
 
 # ── PriceFeedRunnable ────────────────────────────────────────────
+
 
 class PriceFeedRunnable(RunnableSerializable[Dict, Dict]):
     """
@@ -174,8 +171,7 @@ class PriceFeedRunnable(RunnableSerializable[Dict, Dict]):
             return
         if websockets is None:
             raise ImportError(
-                "websockets is required for PriceFeedRunnable. "
-                "Install with: pip install websockets"
+                "websockets is required for PriceFeedRunnable. Install with: pip install websockets"
             )
         self._running = True
         self._task = asyncio.create_task(self._ws_loop())
@@ -201,14 +197,18 @@ class PriceFeedRunnable(RunnableSerializable[Dict, Dict]):
                 async with websockets.client.connect(uri) as ws:
                     # Wait for welcome message
                     raw = await asyncio.wait_for(ws.recv(), timeout=10)
-                    welcome = json.loads(raw)
+                    json.loads(raw)  # consume welcome message
 
                     # Subscribe to specific coins if requested
                     if self.coins:
-                        await ws.send(json.dumps({
-                            "type": "subscribe",
-                            "coins": [c.upper() for c in self.coins],
-                        }))
+                        await ws.send(
+                            json.dumps(
+                                {
+                                    "type": "subscribe",
+                                    "coins": [c.upper() for c in self.coins],
+                                }
+                            )
+                        )
 
                     # Read messages
                     while self._running:
@@ -265,6 +265,7 @@ class PriceFeedRunnable(RunnableSerializable[Dict, Dict]):
 
 # ── PriceFeedCallbackHandler ─────────────────────────────────────
 
+
 class PriceFeedCallbackHandler(BaseCallbackHandler):
     """
     LangChain callback handler that injects latest prices into
@@ -311,6 +312,7 @@ class PriceFeedCallbackHandler(BaseCallbackHandler):
         # Inject into messages if present
         if "messages" in inputs and isinstance(inputs["messages"], list):
             from langchain_core.messages import SystemMessage
+
             inputs["messages"].insert(0, SystemMessage(content=price_text))
         elif "input" in inputs and isinstance(inputs["input"], str):
             inputs["input"] = f"{price_text}\n\n{inputs['input']}"

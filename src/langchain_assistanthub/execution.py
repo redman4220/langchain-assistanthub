@@ -21,7 +21,6 @@ from pydantic import BaseModel, Field
 
 from langchain_assistanthub.tools import AssistantHubBaseTool
 
-
 # ── Input / Output Models ─────────────────────────────────────
 
 
@@ -103,19 +102,19 @@ class AssistantHubExecuteTrade(AssistantHubBaseTool):
         action = action.lower()
 
         if action not in ("buy", "sell"):
-            return json.dumps({
-                "error": "invalid_action",
-                "message": "Action must be 'buy' or 'sell'.",
-            })
+            return json.dumps(
+                {
+                    "error": "invalid_action",
+                    "message": "Action must be 'buy' or 'sell'.",
+                }
+            )
 
         if mode == "live":
             return await self._execute_live(
                 coin, action, amount_usd, stop_loss, take_profit, agent_id
             )
         else:
-            return await self._execute_paper(
-                coin, action, amount_usd, stop_loss, take_profit
-            )
+            return await self._execute_paper(coin, action, amount_usd, stop_loss, take_profit)
 
     async def _execute_paper(
         self,
@@ -147,18 +146,21 @@ class AssistantHubExecuteTrade(AssistantHubBaseTool):
         if "error" in data:
             return json.dumps(data)
 
-        return json.dumps({
-            "success": True,
-            "mode": "paper",
-            "position_id": data.get("positionId", data.get("id")),
-            "coin": coin,
-            "action": action,
-            "amount_usd": amount_usd,
-            "entry_price": data.get("entryPrice"),
-            "wallet_balance": data.get("walletBalance"),
-            "stop_loss": stop_loss,
-            "take_profit": take_profit,
-        }, indent=2)
+        return json.dumps(
+            {
+                "success": True,
+                "mode": "paper",
+                "position_id": data.get("positionId", data.get("id")),
+                "coin": coin,
+                "action": action,
+                "amount_usd": amount_usd,
+                "entry_price": data.get("entryPrice"),
+                "wallet_balance": data.get("walletBalance"),
+                "stop_loss": stop_loss,
+                "take_profit": take_profit,
+            },
+            indent=2,
+        )
 
     async def _execute_live(
         self,
@@ -170,10 +172,12 @@ class AssistantHubExecuteTrade(AssistantHubBaseTool):
         agent_id: Optional[str],
     ) -> str:
         if not agent_id:
-            return json.dumps({
-                "error": "missing_agent_id",
-                "message": "agent_id is required for live execution mode.",
-            })
+            return json.dumps(
+                {
+                    "error": "missing_agent_id",
+                    "message": "agent_id is required for live execution mode.",
+                }
+            )
 
         payload: dict[str, Any] = {
             "action": "trade",
@@ -186,9 +190,7 @@ class AssistantHubExecuteTrade(AssistantHubBaseTool):
         if take_profit is not None:
             payload["takeProfit"] = take_profit
 
-        raw = await self._hub_request(
-            f"/api/agents/{agent_id}/execute", "POST", body=payload
-        )
+        raw = await self._hub_request(f"/api/agents/{agent_id}/execute", "POST", body=payload)
 
         try:
             data = json.loads(raw)
@@ -252,14 +254,14 @@ class AssistantHubCheckApproval(AssistantHubBaseTool):
         **kwargs: Any,
     ) -> str:
         if not workflow_id:
-            return json.dumps({
-                "error": "missing_workflow_id",
-                "message": "workflow_id is required.",
-            })
+            return json.dumps(
+                {
+                    "error": "missing_workflow_id",
+                    "message": "workflow_id is required.",
+                }
+            )
 
-        raw = await self._hub_request(
-            f"/api/agents/workflows/{workflow_id}", "GET"
-        )
+        raw = await self._hub_request(f"/api/agents/workflows/{workflow_id}", "GET")
 
         try:
             data = json.loads(raw)
@@ -269,12 +271,15 @@ class AssistantHubCheckApproval(AssistantHubBaseTool):
         if "error" in data:
             return json.dumps(data)
 
-        return json.dumps({
-            "workflow_id": workflow_id,
-            "status": data.get("status", "unknown"),
-            "approved_by": data.get("approvedBy"),
-            "approved_at": data.get("approvedAt"),
-            "rejected_reason": data.get("rejectedReason"),
-            "tx_hash": data.get("txHash"),
-            "execution_result": data.get("result"),
-        }, indent=2)
+        return json.dumps(
+            {
+                "workflow_id": workflow_id,
+                "status": data.get("status", "unknown"),
+                "approved_by": data.get("approvedBy"),
+                "approved_at": data.get("approvedAt"),
+                "rejected_reason": data.get("rejectedReason"),
+                "tx_hash": data.get("txHash"),
+                "execution_result": data.get("result"),
+            },
+            indent=2,
+        )

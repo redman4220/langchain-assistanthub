@@ -24,7 +24,6 @@ from pydantic import BaseModel, Field
 
 from langchain_assistanthub.tools import AssistantHubBaseTool
 
-
 # ── Output Models ─────────────────────────────────────────────
 
 
@@ -67,9 +66,7 @@ class StrategyAnalysisResult(BaseModel):
     monte_carlo: Optional[MonteCarloSummary] = None
     walk_forward: Optional[WalkForwardSummary] = None
     slippage: Optional[SlippageEstimate] = None
-    recommendation: str = Field(
-        description="AI recommendation: deploy / paper-trade-more / avoid"
-    )
+    recommendation: str = Field(description="AI recommendation: deploy / paper-trade-more / avoid")
 
 
 # ── Input Model ───────────────────────────────────────────────
@@ -151,9 +148,7 @@ class AssistantHubStrategyAnalysis(AssistantHubBaseTool):
             "simulations": simulations,
             "walkForward": True,
         }
-        raw = await self._hub_request(
-            "/backtest/analyze", "POST", body=analyze_payload
-        )
+        raw = await self._hub_request("/backtest/analyze", "POST", body=analyze_payload)
 
         try:
             data = json.loads(raw)
@@ -219,9 +214,7 @@ class AssistantHubStrategyAnalysis(AssistantHubBaseTool):
                 pass  # Slippage is optional — don't fail the whole pipeline
 
         # Step 3: Generate recommendation
-        recommendation = _generate_recommendation(
-            walk_forward, monte_carlo, slippage
-        )
+        recommendation = _generate_recommendation(walk_forward, monte_carlo, slippage)
 
         result = StrategyAnalysisResult(
             coin=coin,
