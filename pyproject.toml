@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langchain-assistanthub"
+version = "0.1.0"
+description = "LangChain toolkit for Assistant Hub (rmassistanthub.io) — crypto intelligence via MCP"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = [
+    "langchain",
+    "langchain-community",
+    "crypto",
+    "trading",
+    "mcp",
+    "model-context-protocol",
+    "x402",
+    "usdc",
+    "ai-agents",
+    "defi",
+    "risk-analysis",
+    "backtesting",
+]
+authors = [
+    { name = "Red Man" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial",
+    "Intended Audience :: Developers",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "langchain-core>=0.2.0",
+    "langchain-mcp-adapters>=0.1.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0",
+    "aiohttp>=3.9",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+x402 = ["eth-account>=0.11"]
+swarm = ["langgraph>=0.2.0"]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "mypy",
+]
+notebook = [
+    "jupyter>=1.0",
+    "pandas>=2.0",
+    "tabulate>=0.9",
+]
+
+[project.urls]
+Homepage = "https://rmassistanthub.io/docs#langchain"
+Documentation = "https://rmassistanthub.io/docs"
+Repository = "https://github.com/redman4220/langchain-assistanthub"
+Issues = "https://github.com/redman4220/langchain-assistanthub/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/langchain_assistanthub"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

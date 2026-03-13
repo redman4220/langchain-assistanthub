@@ -1,0 +1,255 @@
+"""
+AssistantHubToolkit — LangChain Community Toolkit
+
+Wraps the Assistant Hub MCP server and exposes all tools with
+human-readable names, descriptions, and typed input schemas.
+
+Supports two authentication modes:
+  1. JWT (api_key) — for Pro/Premium subscribers
+  2. x402 (no key) — pay-per-call with USDC on Base
+
+Usage:
+    from langchain_assistanthub import AssistantHubToolkit
+    toolkit = AssistantHubToolkit(api_key="your-jwt")
+    tools = toolkit.get_tools()
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any, Dict, List, Optional, Sequence
+
+from langchain_core.tools import BaseTool
+
+from langchain_assistanthub.tools import (
+    AssistantHubLivePrices,
+    AssistantHubFearGreed,
+    AssistantHubCryptoNews,
+    AssistantHubRiskScores,
+    AssistantHubDailyPulse,
+    AssistantHubAIForecast,
+    AssistantHubMonteCarloBacktest,
+    AssistantHubSlippageEstimate,
+    AssistantHubCreateAlert,
+)
+from langchain_assistanthub.strategy import AssistantHubStrategyAnalysis
+from langchain_assistanthub.execution import (
+    AssistantHubExecuteTrade,
+    AssistantHubCheckApproval,
+)
+from langchain_assistanthub.price_monitor import AssistantHubPriceMonitor
+
+
+# ── Tool Registry ────────────────────────────────────────────────────
+
+# (tool_class, is_premium)
+_ALL_TOOLS: List[tuple[type[BaseTool], bool]] = [
+    # Free tools
+    (AssistantHubLivePrices, False),
+    (AssistantHubFearGreed, False),
+    (AssistantHubCryptoNews, False),
+    (AssistantHubRiskScores, False),
+    (AssistantHubDailyPulse, False),
+    # Premium tools
+    (AssistantHubAIForecast, True),
+    (AssistantHubMonteCarloBacktest, True),
+    (AssistantHubSlippageEstimate, True),
+    (AssistantHubCreateAlert, True),
+    (AssistantHubStrategyAnalysis, True),
+    (AssistantHubExecuteTrade, True),
+    (AssistantHubCheckApproval, True),
+]
+
+
+class AssistantHubToolkit:
+    """
+    LangChain toolkit that loads all Assistant Hub crypto intelligence tools.
+
+    Args:
+        api_key:  JWT token or Hub API key. Falls back to ASSISTANT_HUB_API_KEY env var.
+        base_url: Hub instance URL (default: https://rmassistanthub.io).
+        include_premium: Whether to include premium (x402) tools (default: True).
+        tools:    Explicit list of tool names to load (default: all).
+        max_retries: Number of retries on transient failures (default: 2).
+        timeout:  Request timeout in seconds (default: 30).
+        enable_price_feed: Start WebSocket price feed for live monitoring (default: False).
+        price_feed_coins: Coins to subscribe to when price feed is enabled (default: all).
+
+    Example:
+        toolkit = AssistantHubToolkit(api_key="ahk_abc123")
+        tools = toolkit.get_tools()
+
+        # Only free tools:
+        toolkit = AssistantHubToolkit(api_key="...", include_premium=False)
+
+        # With live price monitoring:
+        toolkit = AssistantHubToolkit(
+            api_key="...",
+            enable_price_feed=True,
+            price_feed_coins=["BTC", "ETH", "SOL"],
+        )
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: str = "https://rmassistanthub.io",
+        include_premium: bool = True,
+        tools: Optional[Sequence[str]] = None,
+        max_retries: int = 2,
+        timeout: int = 30,
+        enable_price_feed: bool = False,
+        price_feed_coins: Optional[List[str]] = None,
+    ):
+        self.api_key = api_key or os.environ.get("ASSISTANT_HUB_API_KEY", "")
+        self.base_url = base_url.rstrip("/")
+        self.include_premium = include_premium
+        self.tool_filter = set(tools) if tools else None
+        self.max_retries = max_retries
+        self.timeout = timeout
+        self.enable_price_feed = enable_price_feed
+        self.price_feed_coins = price_feed_coins
+
+        # Price feed state (lazy-initialized)
+        self._price_feed = None
+        self._price_buffer = None
+
+    def get_tools(self) -> List[BaseTool]:
+        """
+        Return instantiated LangChain tools.
+
+        Each tool wraps an HTTP call to the Assistant Hub API
+        with authentication, retry logic, and error handling.
+
+        When enable_price_feed=True, also includes the PriceMonitor tool
+        and starts the WebSocket price feed.
+        """
+        result: List[BaseTool] = []
+
+        for tool_cls, is_premium in _ALL_TOOLS:
+            if is_premium and not self.include_premium:
+                continue
+            if self.tool_filter and tool_cls.hub_tool_id not in self.tool_filter:
+                continue
+
+            tool = tool_cls(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                max_retries=self.max_retries,
+                timeout=self.timeout,
+            )
+            result.append(tool)
+
+        # Add PriceMonitor if price feed is enabled
+        if self.enable_price_feed:
+            monitor = AssistantHubPriceMonitor(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                max_retries=self.max_retries,
+                timeout=self.timeout,
+            )
+            # Lazy-start the price feed
+            if self._price_buffer is None:
+                self._init_price_feed()
+            if self._price_buffer is not None:
+                monitor.set_price_buffer(self._price_buffer)
+            result.append(monitor)
+
+        return result
+
+    def _init_price_feed(self) -> None:
+        """Initialize the WebSocket price feed (lazy, called once)."""
+        try:
+            from langchain_assistanthub.price_feed import PriceFeedRunnable
+
+            self._price_feed = PriceFeedRunnable(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                coins=self.price_feed_coins,
+            )
+            self._price_buffer = self._price_feed.buffer
+            self._price_feed.start()
+        except ImportError:
+            pass  # websockets not installed
+
+    @property
+    def price_feed(self):
+        """Access the PriceFeedRunnable (if enabled)."""
+        return self._price_feed
+
+    @property
+    def price_buffer(self):
+        """Access the shared PriceBuffer (if price feed enabled)."""
+        return self._price_buffer
+
+    def get_tool(self, name: str) -> Optional[BaseTool]:
+        """Get a single tool by its Hub tool ID (e.g. 'live_prices')."""
+        for tool in self.get_tools():
+            if getattr(tool, "hub_tool_id", None) == name:
+                return tool
+        return None
+
+    @property
+    def available_tools(self) -> List[str]:
+        """List all available tool IDs."""
+        ids = [
+            cls.hub_tool_id
+            for cls, is_premium in _ALL_TOOLS
+            if (not is_premium or self.include_premium)
+        ]
+        if self.enable_price_feed:
+            ids.append("price_monitor")
+        return ids
+
+    # ── Convenience Constructors ────────────────────────────────────
+
+    @classmethod
+    def from_api_key(cls, api_key: str, **kwargs) -> "AssistantHubToolkit":
+        """Create toolkit from a Hub API key (JWT or ahk_* key).
+
+        Example:
+            toolkit = AssistantHubToolkit.from_api_key("ahk_abc123")
+            tools = toolkit.get_tools()
+        """
+        return cls(api_key=api_key, **kwargs)
+
+    @classmethod
+    def from_env(cls, **kwargs) -> "AssistantHubToolkit":
+        """Create toolkit from ASSISTANT_HUB_API_KEY env var.
+
+        Example:
+            export ASSISTANT_HUB_API_KEY="ahk_abc123"
+            toolkit = AssistantHubToolkit.from_env()
+        """
+        api_key = os.environ.get("ASSISTANT_HUB_API_KEY", "")
+        if not api_key:
+            raise ValueError(
+                "ASSISTANT_HUB_API_KEY not set. "
+                "Get your key at https://rmassistanthub.io/#payments"
+            )
+        return cls(api_key=api_key, **kwargs)
+
+    @classmethod
+    async def from_mcp(
+        cls,
+        url: str = "https://rmassistanthub.io/mcp",
+        api_key: Optional[str] = None,
+        **kwargs,
+    ) -> List[BaseTool]:
+        """Auto-discover tools via MCP protocol (uses langchain-mcp-adapters).
+
+        Returns raw LangChain tools from the MCP server instead of the
+        pre-defined tool wrappers. Useful when the server adds new tools
+        that aren't yet in this package.
+
+        Example:
+            tools = await AssistantHubToolkit.from_mcp(api_key="ahk_abc123")
+            agent = create_react_agent(model, tools)
+
+        Requires:
+            pip install langchain-mcp-adapters
+        """
+        from langchain_assistanthub.client import AssistantHubMCPClient
+
+        client = AssistantHubMCPClient(url=url, api_key=api_key, **kwargs)
+        return await client.get_tools()
