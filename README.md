@@ -10,8 +10,14 @@ Crypto intelligence toolkit for LangChain agents. Real-time prices, risk scores,
 ## Install
 
 ```bash
-pip install langchain-assistanthub
+# Recommended: pin to current stable version
+pip install langchain-assistanthub==0.1.0
+
+# Or latest (for bleeding-edge users)
+# pip install langchain-assistanthub
 ```
+
+> We're at v0.1.0 — pinned install recommended for stability. Check the [changelog](https://github.com/redman4220/langchain-assistanthub/releases) for updates!
 
 **Optional extras:**
 
