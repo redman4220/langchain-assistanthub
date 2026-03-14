@@ -11,7 +11,7 @@ Crypto intelligence toolkit for LangChain agents. Real-time prices, risk scores,
 
 ```bash
 # Recommended: pin to current stable version
-pip install langchain-assistanthub==0.1.1
+pip install langchain-assistanthub==0.1.2
 
 # Or latest (for bleeding-edge users)
 # pip install langchain-assistanthub
@@ -22,9 +22,10 @@ pip install langchain-assistanthub==0.1.1
 **Optional extras:**
 
 ```bash
-pip install langchain-assistanthub[x402]    # USDC on-chain payments
-pip install langchain-assistanthub[swarm]   # LangGraph multi-agent
-pip install langchain-assistanthub[dev]     # pytest, ruff, mypy
+pip install langchain-assistanthub[x402]      # USDC on-chain payments
+pip install langchain-assistanthub[swarm]     # LangGraph multi-agent
+pip install langchain-assistanthub[notebook]  # JupyterLab + pandas + matplotlib for examples
+pip install langchain-assistanthub[dev]       # pytest, ruff, mypy
 ```
 
 ## Quick Start

@@ -21,7 +21,7 @@ class TestAssistantHubToolkit:
         """Version is accessible."""
         from langchain_assistanthub import __version__
 
-        assert __version__ == "0.1.1"
+        assert __version__ == "0.1.2"
 
     def test_toolkit_init_defaults(self):
         """Toolkit initializes with defaults."""
@@ -255,13 +255,23 @@ class TestPriceBuffer:
         assert set(buf.tracked_coins) == {"BTC", "ETH"}
 
 
-class TestRateLimitError:
-    """Test the rate limit exception."""
+class TestExceptionHierarchy:
+    """Test the exception hierarchy."""
 
-    def test_rate_limit_error_importable(self):
-        from langchain_assistanthub import AssistantHubRateLimitError
+    def test_all_exceptions_importable(self):
+        from langchain_assistanthub import (
+            AssistantHubError,
+            AssistantHubForbiddenError,
+            AssistantHubPaymentRequiredError,
+            AssistantHubRateLimitError,
+            AssistantHubServerError,
+        )
 
+        assert AssistantHubError is not None
         assert AssistantHubRateLimitError is not None
+        assert AssistantHubPaymentRequiredError is not None
+        assert AssistantHubForbiddenError is not None
+        assert AssistantHubServerError is not None
 
     def test_rate_limit_error_message(self):
         from langchain_assistanthub import AssistantHubRateLimitError
@@ -276,6 +286,39 @@ class TestRateLimitError:
 
         err = AssistantHubRateLimitError()
         assert "Free tier" in str(err)
+
+    def test_payment_required_error(self):
+        from langchain_assistanthub import AssistantHubPaymentRequiredError
+
+        err = AssistantHubPaymentRequiredError("Forecast requires payment.")
+        assert "x402" in str(err)
+        assert err.detail == "Forecast requires payment."
+
+    def test_forbidden_error(self):
+        from langchain_assistanthub import AssistantHubForbiddenError
+
+        err = AssistantHubForbiddenError()
+        assert "Login or upgrade" in str(err)
+
+    def test_server_error(self):
+        from langchain_assistanthub import AssistantHubServerError
+
+        err = AssistantHubServerError()
+        assert "github.com" in str(err)
+
+    def test_all_inherit_from_base(self):
+        from langchain_assistanthub import (
+            AssistantHubError,
+            AssistantHubForbiddenError,
+            AssistantHubPaymentRequiredError,
+            AssistantHubRateLimitError,
+            AssistantHubServerError,
+        )
+
+        assert issubclass(AssistantHubRateLimitError, AssistantHubError)
+        assert issubclass(AssistantHubPaymentRequiredError, AssistantHubError)
+        assert issubclass(AssistantHubForbiddenError, AssistantHubError)
+        assert issubclass(AssistantHubServerError, AssistantHubError)
 
 
 class TestFromHubLogin:
@@ -316,3 +359,50 @@ class TestTelemetry:
         from langchain_assistanthub._telemetry import _send_telemetry
 
         assert callable(_send_telemetry)
+
+
+class TestGetToolMetadata:
+    """Test the get_tool_metadata method."""
+
+    def test_metadata_free_tool(self):
+        from langchain_assistanthub import AssistantHubToolkit
+
+        toolkit = AssistantHubToolkit(api_key="test")
+        meta = toolkit.get_tool_metadata("live_prices")
+        assert meta["hub_tool_id"] == "live_prices"
+        assert meta["tier_required"] is False
+        assert meta["x402_price_usdc"] == 0.0
+        assert meta["staking_discount_pct"] == 50
+        assert "daily_limits" in meta
+
+    def test_metadata_premium_tool(self):
+        from langchain_assistanthub import AssistantHubToolkit
+
+        toolkit = AssistantHubToolkit(api_key="test")
+        meta = toolkit.get_tool_metadata("ai_forecast")
+        assert meta["hub_tool_id"] == "ai_forecast"
+        assert meta["tier_required"] is True
+        assert meta["x402_price_usdc"] > 0
+
+    def test_metadata_by_full_name(self):
+        from langchain_assistanthub import AssistantHubToolkit
+
+        toolkit = AssistantHubToolkit(api_key="test")
+        meta = toolkit.get_tool_metadata("assistant_hub_live_prices")
+        assert meta["hub_tool_id"] == "live_prices"
+
+    def test_metadata_unknown_tool(self):
+        import pytest
+
+        from langchain_assistanthub import AssistantHubToolkit
+
+        toolkit = AssistantHubToolkit(api_key="test")
+        with pytest.raises(ValueError, match="not found"):
+            toolkit.get_tool_metadata("nonexistent_tool")
+
+    def test_metadata_has_description(self):
+        from langchain_assistanthub import AssistantHubToolkit
+
+        toolkit = AssistantHubToolkit(api_key="test")
+        meta = toolkit.get_tool_metadata("fear_greed")
+        assert len(meta["description"]) > 0

@@ -25,6 +25,13 @@ Payment:
 
 from langchain_assistanthub._version import __version__  # noqa: F401
 from langchain_assistanthub.client import AssistantHubMCPClient
+from langchain_assistanthub.exceptions import (
+    AssistantHubError,
+    AssistantHubForbiddenError,
+    AssistantHubPaymentRequiredError,
+    AssistantHubRateLimitError,
+    AssistantHubServerError,
+)
 from langchain_assistanthub.execution import (
     AssistantHubCheckApproval,
     AssistantHubExecuteTrade,
@@ -48,7 +55,6 @@ from langchain_assistanthub.tools import (
     AssistantHubFearGreed,
     AssistantHubLivePrices,
     AssistantHubMonteCarloBacktest,
-    AssistantHubRateLimitError,
     AssistantHubRiskScores,
     AssistantHubSlippageEstimate,
 )
@@ -78,5 +84,9 @@ __all__ = [
     "AssistantHubExecuteTrade",
     "AssistantHubCheckApproval",
     # Exceptions
+    "AssistantHubError",
     "AssistantHubRateLimitError",
+    "AssistantHubPaymentRequiredError",
+    "AssistantHubForbiddenError",
+    "AssistantHubServerError",
 ]

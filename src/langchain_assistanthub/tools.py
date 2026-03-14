@@ -19,24 +19,12 @@ import aiohttp
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-# ── Rate Limit Exception ─────────────────────────────────────────────
-
-
-class AssistantHubRateLimitError(Exception):
-    """Raised when the Hub API returns 429 (rate limit exceeded).
-
-    Includes an upgrade CTA in the message so agents/notebooks
-    surface a clear path to higher limits.
-    """
-
-    def __init__(self, detail: str = "Free tier: 10 calls/day limit reached."):
-        super().__init__(
-            f"{detail} "
-            "Upgrade to Pro ($1/mo) or stake HUB for 50% off: "
-            "https://rmassistanthub.io/#payments"
-        )
-        self.detail = detail
-
+from langchain_assistanthub.exceptions import (
+    AssistantHubForbiddenError,
+    AssistantHubPaymentRequiredError,
+    AssistantHubRateLimitError,
+    AssistantHubServerError,
+)
 
 # ── Base Tool ────────────────────────────────────────────────────────
 
@@ -89,22 +77,21 @@ class AssistantHubBaseTool(BaseTool):
 
                     async with session.request(self.hub_method, url, **kwargs) as resp:
                         if resp.status == 402:
-                            # Premium tool — return payment info for agent to handle
-                            payment_headers = {
-                                k: v
-                                for k, v in resp.headers.items()
-                                if k.lower().startswith("x-402-")
-                            }
-                            return {
-                                "error": "payment_required",
-                                "message": (
-                                    f"Premium tool. Pay "
-                                    f"{payment_headers.get('x-402-amount', '?')} "
-                                    "USDC on Base, or upgrade to Pro/Premium."
-                                ),
-                                "payment": payment_headers,
-                                "docs": f"{self.base_url}/docs#x402",
-                            }
+                            # Premium tool — raise with x402 payment info
+                            try:
+                                err_body = await resp.json()
+                                detail = err_body.get("detail", "Premium tool requires payment.")
+                            except Exception:
+                                detail = "Premium tool requires payment."
+                            raise AssistantHubPaymentRequiredError(str(detail))
+
+                        if resp.status == 403:
+                            try:
+                                err_body = await resp.json()
+                                detail = err_body.get("detail", "Access forbidden.")
+                            except Exception:
+                                detail = "Access forbidden."
+                            raise AssistantHubForbiddenError(str(detail))
 
                         if resp.status == 429:
                             # Rate limited — retry after delay
@@ -115,17 +102,29 @@ class AssistantHubBaseTool(BaseTool):
                                 continue
                             # All retries exhausted — raise with upgrade CTA
                             try:
-                                body = await resp.json()
-                                detail = body.get(
-                                    "detail", body.get("error", "Rate limit exceeded.")
+                                err_body = await resp.json()
+                                detail = err_body.get(
+                                    "detail",
+                                    err_body.get("error", "Rate limit exceeded."),
                                 )
                             except Exception:
                                 detail = "Rate limit exceeded."
                             raise AssistantHubRateLimitError(str(detail))
 
+                        if resp.status >= 500:
+                            try:
+                                err_body = await resp.json()
+                                detail = err_body.get("detail", "Internal server error.")
+                            except Exception:
+                                detail = await resp.text()
+                            raise AssistantHubServerError(str(detail)[:500])
+
                         if resp.status >= 400:
                             text = await resp.text()
-                            return {"error": f"http_{resp.status}", "message": text[:500]}
+                            return {
+                                "error": f"http_{resp.status}",
+                                "message": text[:500],
+                            }
 
                         return await resp.json()
 

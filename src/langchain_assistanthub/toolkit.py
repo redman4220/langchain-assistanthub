@@ -208,6 +208,61 @@ class AssistantHubToolkit:
             ids.append("price_monitor")
         return ids
 
+    def get_tool_metadata(self, tool_name: str) -> dict:
+        """Get metadata for a specific tool: tier, daily limits, x402 price.
+
+        Lets agents self-query "is this premium? do I need to pay?"
+        before invoking a tool.
+
+        Args:
+            tool_name: Hub tool ID (e.g. 'live_prices', 'ai_forecast')
+                       or full tool name (e.g. 'assistant_hub_live_prices').
+
+        Returns:
+            Dict with tier_required, daily_limits, x402_price_usdc,
+            staking_discount_pct, and description.
+
+        Raises:
+            ValueError: If the tool is not found.
+
+        Example:
+            meta = toolkit.get_tool_metadata("ai_forecast")
+            if meta["tier_required"]:
+                print(f"Premium tool — x402 price: ${meta['x402_price_usdc']}")
+        """
+        # Check against registry first (no instantiation needed)
+        for tool_cls, is_premium in _ALL_TOOLS:
+            hub_id = tool_cls.model_fields["hub_tool_id"].default
+            tool_full_name = tool_cls.model_fields.get("name", None)
+            full_name = tool_full_name.default if tool_full_name else ""
+
+            if tool_name not in (hub_id, full_name):
+                continue
+
+            # Skip if premium excluded
+            if is_premium and not self.include_premium:
+                continue
+
+            return {
+                "hub_tool_id": hub_id,
+                "name": full_name,
+                "tier_required": is_premium,
+                "daily_limits": {
+                    "anonymous": 10,
+                    "free": 50,
+                    "pro": 200,
+                    "premium": "unlimited",
+                },
+                "x402_price_usdc": 0.01 if is_premium else 0.0,
+                "staking_discount_pct": 50,
+                "description": tool_cls.model_fields.get("description", None).default
+                if tool_cls.model_fields.get("description")
+                else "",
+            }
+
+        available = [cls.model_fields["hub_tool_id"].default for cls, _ in _ALL_TOOLS]
+        raise ValueError(f"Tool '{tool_name}' not found. Available: {available}")
+
     # ── Convenience Constructors ────────────────────────────────────
 
     @classmethod
