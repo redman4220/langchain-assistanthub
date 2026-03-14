@@ -19,6 +19,25 @@ import aiohttp
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
+# ── Rate Limit Exception ─────────────────────────────────────────────
+
+
+class AssistantHubRateLimitError(Exception):
+    """Raised when the Hub API returns 429 (rate limit exceeded).
+
+    Includes an upgrade CTA in the message so agents/notebooks
+    surface a clear path to higher limits.
+    """
+
+    def __init__(self, detail: str = "Free tier: 10 calls/day limit reached."):
+        super().__init__(
+            f"{detail} "
+            "Upgrade to Pro ($1/mo) or stake HUB for 50% off: "
+            "https://rmassistanthub.io/#payments"
+        )
+        self.detail = detail
+
+
 # ── Base Tool ────────────────────────────────────────────────────────
 
 
@@ -94,10 +113,15 @@ class AssistantHubBaseTool(BaseTool):
 
                                 await asyncio.sleep(2**attempt)
                                 continue
-                            return {
-                                "error": "rate_limited",
-                                "message": "Rate limit exceeded. Try again later.",
-                            }
+                            # All retries exhausted — raise with upgrade CTA
+                            try:
+                                body = await resp.json()
+                                detail = body.get(
+                                    "detail", body.get("error", "Rate limit exceeded.")
+                                )
+                            except Exception:
+                                detail = "Rate limit exceeded."
+                            raise AssistantHubRateLimitError(str(detail))
 
                         if resp.status >= 400:
                             text = await resp.text()

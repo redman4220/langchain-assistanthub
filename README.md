@@ -11,13 +11,13 @@ Crypto intelligence toolkit for LangChain agents. Real-time prices, risk scores,
 
 ```bash
 # Recommended: pin to current stable version
-pip install langchain-assistanthub==0.1.0
+pip install langchain-assistanthub==0.1.1
 
 # Or latest (for bleeding-edge users)
 # pip install langchain-assistanthub
 ```
 
-> We're at v0.1.0 — pinned install recommended for stability. Check the [changelog](https://github.com/redman4220/langchain-assistanthub/releases) for updates!
+> We're at v0.1.1 — pinned install recommended for stability. Check the [changelog](https://github.com/redman4220/langchain-assistanthub/releases) for updates!
 
 **Optional extras:**
 
@@ -45,7 +45,16 @@ result = agent.invoke({"messages": [
 ]})
 ```
 
-### Option B: MCP auto-discovery
+### Option B: Login with Hub credentials
+
+```python
+from langchain_assistanthub import AssistantHubToolkit
+
+toolkit = AssistantHubToolkit.from_hub_login("you@email.com", "password")
+tools = toolkit.get_tools()
+```
+
+### Option C: MCP auto-discovery
 
 Dynamically discover tools from the MCP server — picks up new tools
 without upgrading the package:
@@ -57,7 +66,7 @@ tools = await AssistantHubToolkit.from_mcp(api_key="ahk_your_key")
 agent = create_react_agent(model, tools)
 ```
 
-### Option C: MCP client directly
+### Option D: MCP client directly
 
 ```python
 from langchain_assistanthub import AssistantHubMCPClient
@@ -150,6 +159,17 @@ See [`sdk/notebooks/`](https://github.com/redman4220/assistant-hub/tree/master/s
 | `01_sentiment_trader.py` | ReAct agent: sentiment → news → risk → trade | Beginner |
 | `02_backtest_optimizer.py` | Grid search 4 strategies × 3 coins | Intermediate |
 | `03_live_monitor.py` | WebSocket feed + auto AI analysis on big moves | Advanced |
+
+## Telemetry
+
+This package sends a single anonymous ping on toolkit init to help us gauge adoption.
+No PII is collected — just a random ID, package version, and auth type (keyed vs anonymous).
+
+**Opt out:**
+
+```bash
+export ASSISTANT_HUB_TELEMETRY_OPT_OUT=1
+```
 
 ## Links
 

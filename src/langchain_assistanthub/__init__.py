@@ -48,6 +48,7 @@ from langchain_assistanthub.tools import (
     AssistantHubFearGreed,
     AssistantHubLivePrices,
     AssistantHubMonteCarloBacktest,
+    AssistantHubRateLimitError,
     AssistantHubRiskScores,
     AssistantHubSlippageEstimate,
 )
@@ -76,4 +77,6 @@ __all__ = [
     # Execution (Feature 3)
     "AssistantHubExecuteTrade",
     "AssistantHubCheckApproval",
+    # Exceptions
+    "AssistantHubRateLimitError",
 ]

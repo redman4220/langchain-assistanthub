@@ -113,6 +113,11 @@ class AssistantHubToolkit:
         self._price_feed = None
         self._price_buffer = None
 
+        # Anonymous telemetry (opt out: ASSISTANT_HUB_TELEMETRY_OPT_OUT=1)
+        from langchain_assistanthub._telemetry import _send_telemetry
+
+        _send_telemetry(self.base_url, has_api_key=bool(self.api_key))
+
     def get_tools(self) -> List[BaseTool]:
         """
         Return instantiated LangChain tools.
@@ -229,6 +234,66 @@ class AssistantHubToolkit:
                 "ASSISTANT_HUB_API_KEY not set. Get your key at https://rmassistanthub.io/#payments"
             )
         return cls(api_key=api_key, **kwargs)
+
+    @classmethod
+    def from_hub_login(
+        cls, email: str, password: str, **kwargs
+    ) -> "AssistantHubToolkit":
+        """Create toolkit by logging into Assistant Hub with email/password.
+
+        Authenticates against the Hub API and uses the returned JWT token.
+        Useful for notebook / script workflows without managing API keys.
+
+        Args:
+            email: Your Assistant Hub account email.
+            password: Your account password.
+            **kwargs: Additional arguments passed to AssistantHubToolkit().
+
+        Example:
+            toolkit = AssistantHubToolkit.from_hub_login(
+                "user@example.com", "mypassword"
+            )
+            tools = toolkit.get_tools()
+
+        Raises:
+            ValueError: If login fails (wrong credentials, network error).
+        """
+        import json
+        import urllib.error
+        import urllib.request
+
+        base_url = kwargs.pop("base_url", "https://rmassistanthub.io").rstrip("/")
+        url = f"{base_url}/api/auth/login"
+
+        payload = json.dumps({"email": email, "password": password}).encode()
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            try:
+                body = json.loads(e.read())
+                detail = body.get("error", str(e))
+            except Exception:
+                detail = str(e)
+            raise ValueError(
+                f"Login failed: {detail}. "
+                "Check credentials or sign up at https://rmassistanthub.io"
+            ) from None
+        except Exception as e:
+            raise ValueError(f"Login failed: {e}") from None
+
+        token = data.get("token")
+        if not token:
+            raise ValueError("Login response missing token. Check API version.")
+
+        return cls(api_key=token, base_url=base_url, **kwargs)
 
     @classmethod
     async def from_mcp(

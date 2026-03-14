@@ -21,7 +21,7 @@ class TestAssistantHubToolkit:
         """Version is accessible."""
         from langchain_assistanthub import __version__
 
-        assert __version__ == "0.1.0"
+        assert __version__ == "0.1.1"
 
     def test_toolkit_init_defaults(self):
         """Toolkit initializes with defaults."""
@@ -253,3 +253,66 @@ class TestPriceBuffer:
         buf.update("BTC", 50000.0, 1000)
         buf.update("ETH", 3000.0, 1000)
         assert set(buf.tracked_coins) == {"BTC", "ETH"}
+
+
+class TestRateLimitError:
+    """Test the rate limit exception."""
+
+    def test_rate_limit_error_importable(self):
+        from langchain_assistanthub import AssistantHubRateLimitError
+
+        assert AssistantHubRateLimitError is not None
+
+    def test_rate_limit_error_message(self):
+        from langchain_assistanthub import AssistantHubRateLimitError
+
+        err = AssistantHubRateLimitError("10/day limit hit.")
+        assert "Upgrade to Pro" in str(err)
+        assert "rmassistanthub.io" in str(err)
+        assert err.detail == "10/day limit hit."
+
+    def test_rate_limit_error_default_message(self):
+        from langchain_assistanthub import AssistantHubRateLimitError
+
+        err = AssistantHubRateLimitError()
+        assert "Free tier" in str(err)
+
+
+class TestFromHubLogin:
+    """Test the from_hub_login convenience constructor."""
+
+    def test_from_hub_login_exists(self):
+        from langchain_assistanthub import AssistantHubToolkit
+
+        assert hasattr(AssistantHubToolkit, "from_hub_login")
+        assert callable(AssistantHubToolkit.from_hub_login)
+
+    def test_from_hub_login_bad_url(self):
+        """from_hub_login raises ValueError on connection failure."""
+        import pytest
+
+        from langchain_assistanthub import AssistantHubToolkit
+
+        with pytest.raises(ValueError, match="Login failed"):
+            AssistantHubToolkit.from_hub_login(
+                "bad@example.com",
+                "wrongpass",
+                base_url="http://localhost:99999",
+            )
+
+
+class TestTelemetry:
+    """Test telemetry opt-out."""
+
+    def test_telemetry_opt_out(self):
+        """Telemetry respects opt-out env var."""
+        with patch.dict(os.environ, {"ASSISTANT_HUB_TELEMETRY_OPT_OUT": "1"}):
+            from langchain_assistanthub._telemetry import _send_telemetry
+
+            # Should return immediately without error
+            _send_telemetry("http://localhost:99999", has_api_key=False)
+
+    def test_telemetry_module_importable(self):
+        from langchain_assistanthub._telemetry import _send_telemetry
+
+        assert callable(_send_telemetry)
