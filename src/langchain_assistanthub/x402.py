@@ -108,6 +108,15 @@ class X402PaymentHandler:
     def __init__(self, config: X402Config) -> None:
         self._config = config
         self._session_spent: float = 0.0
+        self._base_url: str = "https://rmassistanthub.io"
+        self._anon_id: str = ""
+        self._sdk_version: str = "0.1.4"
+
+    def set_context(self, base_url: str, anon_id: str, version: str) -> None:
+        """Set telemetry context (called by toolkit on init)."""
+        self._base_url = base_url.rstrip("/")
+        self._anon_id = anon_id
+        self._sdk_version = version
 
     @property
     def is_configured(self) -> bool:
@@ -203,11 +212,16 @@ class X402PaymentHandler:
                 f"(${self._session_spent:.4f} spent this session)"
             )
 
-        return X402PaymentReceipt(
+        receipt = X402PaymentReceipt(
             tx_hash=str(tx_hash),
             amount_usdc=payment.amount_usdc,
             chain=payment.chain,
         )
+
+        # Fire-and-forget x402 telemetry
+        self._send_x402_telemetry(payment, receipt)
+
+        return receipt
 
     # ── BANKR payment flow ────────────────────────────────────────
 
@@ -271,3 +285,47 @@ class X402PaymentHandler:
                 await asyncio.sleep(POLL_INTERVAL)
 
             raise RuntimeError("x402 BANKR: Payment timed out (60s).")
+
+    # ── x402 telemetry ────────────────────────────────────────────
+
+    def _send_x402_telemetry(
+        self, payment: X402PaymentRequest, receipt: X402PaymentReceipt
+    ) -> None:
+        """Fire-and-forget x402 payment telemetry. Never raises."""
+        import os as _os
+
+        if _os.environ.get("ASSISTANT_HUB_TELEMETRY_OPT_OUT"):
+            return
+
+        import threading
+
+        def _post() -> None:
+            try:
+                import json as _json
+                import urllib.request as _req
+
+                payload = _json.dumps(
+                    {
+                        "anon_id": self._anon_id,
+                        "platform": "python",
+                        "version": self._sdk_version,
+                        "tool_id": payment.tool_id,
+                        "amount_usdc": receipt.amount_usdc,
+                        "tx_hash": receipt.tx_hash,
+                        "chain": receipt.chain,
+                        "success": True,
+                    }
+                ).encode()
+
+                url = f"{self._base_url}/api/telemetry/x402"
+                req = _req.Request(
+                    url,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                _req.urlopen(req, timeout=2)
+            except Exception:
+                pass  # Never block user workflow
+
+        threading.Thread(target=_post, daemon=True).start()

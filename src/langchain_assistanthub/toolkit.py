@@ -115,6 +115,11 @@ class AssistantHubToolkit:
         self._x402_handler: Optional[X402PaymentHandler] = None
         if x402 is not None:
             self._x402_handler = X402PaymentHandler(x402)
+            # Pass telemetry context so payment events can be tracked
+            import os as _os
+            anon_id = _os.urandom(8).hex()
+            from langchain_assistanthub._version import __version__
+            self._x402_handler.set_context(self.base_url, anon_id, __version__)
 
         # Price feed state (lazy-initialized)
         self._price_feed = None
