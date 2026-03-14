@@ -47,6 +47,12 @@ from langchain_assistanthub.strategy import (
     StrategyAnalysisResult,
 )
 from langchain_assistanthub.toolkit import AssistantHubToolkit
+from langchain_assistanthub.x402 import (
+    X402Config,
+    X402PaymentHandler,
+    X402PaymentReceipt,
+    X402PaymentRequest,
+)
 from langchain_assistanthub.tools import (
     AssistantHubAIForecast,
     AssistantHubCreateAlert,
@@ -89,4 +95,9 @@ __all__ = [
     "AssistantHubPaymentRequiredError",
     "AssistantHubForbiddenError",
     "AssistantHubServerError",
+    # x402 auto-payment
+    "X402Config",
+    "X402PaymentHandler",
+    "X402PaymentRequest",
+    "X402PaymentReceipt",
 ]

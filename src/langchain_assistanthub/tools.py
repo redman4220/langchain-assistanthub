@@ -44,6 +44,9 @@ class AssistantHubBaseTool(BaseTool):
     max_retries: int = 2
     timeout: int = 30
 
+    # x402 auto-payment handler (set by toolkit when x402 is configured)
+    x402_handler: Any = None
+
     class Config:
         arbitrary_types_allowed = True
 
@@ -77,7 +80,35 @@ class AssistantHubBaseTool(BaseTool):
 
                     async with session.request(self.hub_method, url, **kwargs) as resp:
                         if resp.status == 402:
-                            # Premium tool — raise with x402 payment info
+                            # Try x402 auto-payment if handler is configured
+                            if self.x402_handler and self.x402_handler.is_configured:
+                                try:
+                                    err_body = await resp.json()
+                                except Exception:
+                                    err_body = {}
+                                resp_headers = {k: v for k, v in resp.headers.items()}
+                                payment = self.x402_handler.parse_payment_request(
+                                    resp_headers, err_body, self.hub_tool_id
+                                )
+                                receipt = await self.x402_handler.pay(payment)
+                                # Retry with payment receipt
+                                retry_headers = {
+                                    **headers,
+                                    "X-Payment-Receipt": receipt.tx_hash,
+                                    "X-Payment-Amount": str(receipt.amount_usdc),
+                                    "X-Payment-Chain": receipt.chain,
+                                }
+                                retry_kwargs = {**kwargs, "headers": retry_headers}
+                                async with session.request(self.hub_method, url, **retry_kwargs) as retry_resp:
+                                    if retry_resp.status >= 400:
+                                        text = await retry_resp.text()
+                                        raise AssistantHubPaymentRequiredError(
+                                            f"Payment sent ({receipt.tx_hash}) but request "
+                                            f"still failed ({retry_resp.status}): {text[:200]}"
+                                        )
+                                    return await retry_resp.json()
+
+                            # No x402 handler — raise as before
                             try:
                                 err_body = await resp.json()
                                 detail = err_body.get("detail", "Premium tool requires payment.")

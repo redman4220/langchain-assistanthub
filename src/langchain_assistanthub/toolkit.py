@@ -38,6 +38,7 @@ from langchain_assistanthub.tools import (
     AssistantHubRiskScores,
     AssistantHubSlippageEstimate,
 )
+from langchain_assistanthub.x402 import X402Config, X402PaymentHandler
 
 # ── Tool Registry ────────────────────────────────────────────────────
 
@@ -99,6 +100,7 @@ class AssistantHubToolkit:
         timeout: int = 30,
         enable_price_feed: bool = False,
         price_feed_coins: Optional[List[str]] = None,
+        x402: Optional[X402Config] = None,
     ):
         self.api_key = api_key or os.environ.get("ASSISTANT_HUB_API_KEY", "")
         self.base_url = base_url.rstrip("/")
@@ -108,6 +110,11 @@ class AssistantHubToolkit:
         self.timeout = timeout
         self.enable_price_feed = enable_price_feed
         self.price_feed_coins = price_feed_coins
+
+        # x402 auto-payment handler
+        self._x402_handler: Optional[X402PaymentHandler] = None
+        if x402 is not None:
+            self._x402_handler = X402PaymentHandler(x402)
 
         # Price feed state (lazy-initialized)
         self._price_feed = None
@@ -145,6 +152,9 @@ class AssistantHubToolkit:
                 max_retries=self.max_retries,
                 timeout=self.timeout,
             )
+            # Attach x402 handler if configured
+            if self._x402_handler is not None:
+                tool.x402_handler = self._x402_handler
             result.append(tool)
 
         # Add PriceMonitor if price feed is enabled
@@ -262,6 +272,19 @@ class AssistantHubToolkit:
 
         available = [cls.model_fields["hub_tool_id"].default for cls, _ in _ALL_TOOLS]
         raise ValueError(f"Tool '{tool_name}' not found. Available: {available}")
+
+    @property
+    def x402(self) -> Optional[X402PaymentHandler]:
+        """Access the x402 payment handler (if configured).
+
+        Useful for checking session spend or resetting the counter.
+
+        Example:
+            if toolkit.x402:
+                print(f"Session spend: ${toolkit.x402.spent}")
+                toolkit.x402.reset_session()
+        """
+        return self._x402_handler
 
     # ── Convenience Constructors ────────────────────────────────────
 

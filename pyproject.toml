@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-assistanthub"
-version = "0.1.2"
+version = "0.1.3"
 description = "LangChain toolkit for Assistant Hub (rmassistanthub.io) — crypto intelligence via MCP"
 readme = "README.md"
 requires-python = ">=3.10"
