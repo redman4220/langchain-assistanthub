@@ -17,7 +17,7 @@ pip install langchain-assistanthub==0.1.2
 # pip install langchain-assistanthub
 ```
 
-> We're at v0.1.1 — pinned install recommended for stability. Check the [changelog](https://github.com/redman4220/langchain-assistanthub/releases) for updates!
+> We're at v0.1.2 — pinned install recommended for stability. Check the [changelog](https://github.com/redman4220/langchain-assistanthub/releases) for updates!
 
 **Optional extras:**
 
