@@ -21,7 +21,7 @@ class TestAssistantHubToolkit:
         """Version is accessible."""
         from langchain_assistanthub import __version__
 
-        assert __version__ == "0.1.2"
+        assert __version__ == "0.1.4"
 
     def test_toolkit_init_defaults(self):
         """Toolkit initializes with defaults."""
