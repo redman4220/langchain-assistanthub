@@ -236,9 +236,7 @@ class AssistantHubToolkit:
         return cls(api_key=api_key, **kwargs)
 
     @classmethod
-    def from_hub_login(
-        cls, email: str, password: str, **kwargs
-    ) -> "AssistantHubToolkit":
+    def from_hub_login(cls, email: str, password: str, **kwargs) -> "AssistantHubToolkit":
         """Create toolkit by logging into Assistant Hub with email/password.
 
         Authenticates against the Hub API and uses the returned JWT token.
@@ -283,8 +281,7 @@ class AssistantHubToolkit:
             except Exception:
                 detail = str(e)
             raise ValueError(
-                f"Login failed: {detail}. "
-                "Check credentials or sign up at https://rmassistanthub.io"
+                f"Login failed: {detail}. Check credentials or sign up at https://rmassistanthub.io"
             ) from None
         except Exception as e:
             raise ValueError(f"Login failed: {e}") from None

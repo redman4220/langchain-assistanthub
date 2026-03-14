@@ -33,12 +33,14 @@ def _send_telemetry(
             # One-time random ID — not tied to any user identity
             anon_id = os.urandom(8).hex()
 
-            payload = json.dumps({
-                "event": event,
-                "version": __version__,
-                "anon_id": anon_id,
-                "auth_type": "api_key" if has_api_key else "anonymous",
-            }).encode()
+            payload = json.dumps(
+                {
+                    "event": event,
+                    "version": __version__,
+                    "anon_id": anon_id,
+                    "auth_type": "api_key" if has_api_key else "anonymous",
+                }
+            ).encode()
 
             url = f"{base_url}/api/telemetry/toolkit"
             req = urllib.request.Request(
